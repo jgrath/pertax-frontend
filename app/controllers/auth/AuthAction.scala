@@ -20,6 +20,7 @@ import com.google.inject.{ImplementedBy, Inject}
 import config.ConfigDecorator
 import controllers.auth.requests.{AuthenticatedRequest, SelfAssessmentEnrolment, SelfAssessmentStatus}
 import controllers.routes
+import io.lemonlabs.uri.Url
 import models.UserName
 import play.api.Configuration
 import play.api.mvc.Results.Redirect
@@ -33,7 +34,6 @@ import uk.gov.hmrc.domain.SaUtr
 import uk.gov.hmrc.http.{HeaderCarrier, SessionKeys}
 import uk.gov.hmrc.play.HeaderCarrierConverter
 import uk.gov.hmrc.play.bootstrap.binders.SafeRedirectUrl
-import io.lemonlabs.uri.Url
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -41,7 +41,8 @@ class AuthActionImpl @Inject()(
   val authConnector: AuthConnector,
   configuration: Configuration,
   configDecorator: ConfigDecorator,
-  sessionAuditor: SessionAuditor)(implicit ec: ExecutionContext)
+  sessionAuditor: SessionAuditor,
+  covidInterceptor: CovidInterceptor)(implicit ec: ExecutionContext)
     extends AuthAction with AuthorisedFunctions {
 
   def addRedirect(profileUrl: Option[String]): Option[String] =
@@ -129,10 +130,13 @@ class AuthActionImpl @Inject()(
             trimmedRequest
           )
 
-          for {
-            result        <- block(authenticatedRequest)
-            updatedResult <- sessionAuditor.auditOnce(authenticatedRequest, result)
-          } yield updatedResult
+          def defaultResult =
+            for {
+              result        <- block(authenticatedRequest)
+              updatedResult <- sessionAuditor.auditOnce(authenticatedRequest, result)
+            } yield updatedResult
+
+          covidInterceptor.interceptOnce(authenticatedRequest, defaultResult)
 
         case _ => throw new RuntimeException("Can't find credentials for user")
       }
