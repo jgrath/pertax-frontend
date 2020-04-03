@@ -15,30 +15,14 @@
  */
 
 package controllers.auth
-
-import com.google.inject.Inject
 import controllers.auth.requests.AuthenticatedRequest
 import play.api.mvc.Result
-import play.api.mvc.Results.Redirect
 import uk.gov.hmrc.http.HeaderCarrier
-import controllers.auth.CovidInterceptor._
 
 import scala.concurrent.Future
 
-private[auth] class CovidInterceptor @Inject()() {
-  def interceptOnce[A](request: AuthenticatedRequest[A], defaultResult: Future[Result])(
+class CovidInterceptorFake extends CovidInterceptor {
+  override def interceptOnce[A](request: AuthenticatedRequest[A], defaultResult: Future[Result])(
     implicit hc: HeaderCarrier): Future[Result] =
-    request.session.get(pageIntercepted) match {
-      case None =>
-        val result = Redirect(controllers.routes.CovidInterceptController.index())
-        Future.successful(
-          result.addingToSession(pageIntercepted -> "true", interceptorContinueUrl -> request.uri)(request))
-      case _ =>
-        defaultResult
-    }
-}
-
-object CovidInterceptor {
-  val pageIntercepted = "pageIntercepted"
-  val interceptorContinueUrl = "interceptorContinueUrl"
+    defaultResult
 }
