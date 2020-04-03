@@ -17,26 +17,26 @@
 package controllers.auth
 
 import controllers.auth.requests.AuthenticatedRequest
-import org.scalatest.{FreeSpec, MustMatchers}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
+import org.scalatest.{FreeSpec, MustMatchers}
 import org.scalatestplus.play.OneAppPerSuite
 import play.api.mvc.Request
-import play.api.test.FakeRequest
 import play.api.mvc.Results.Ok
+import play.api.test.FakeRequest
 import play.api.test.Helpers._
-import play.api.mvc.{Request, Result}
 import uk.gov.hmrc.auth.core.ConfidenceLevel
 import uk.gov.hmrc.auth.core.retrieve.Credentials
 import uk.gov.hmrc.http.HeaderCarrier
-
 import util.Fixtures
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 class CovidInterceptorSpec extends FreeSpec with MustMatchers with MockitoSugar with OneAppPerSuite with ScalaFutures {
 
   implicit val hc = HeaderCarrier()
+  implicit val ec = app.injector.instanceOf[ExecutionContext]
+
   val testRequest = FakeRequest()
 
   def authenticatedRequest[A](request: Request[A]) = AuthenticatedRequest[A](
@@ -70,10 +70,13 @@ class CovidInterceptorSpec extends FreeSpec with MustMatchers with MockitoSugar 
     }
 
     "should redirect once" in {
-      val result = covidInterceptor.interceptOnce(authenticatedRequest(testRequest), defaultResult)
-      val result = covidInterceptor.interceptOnce(authenticatedRequest(testRequest), defaultResult)
-
-
+      for {
+        first  <- covidInterceptor.interceptOnce(authenticatedRequest(testRequest), defaultResult)
+        second <- covidInterceptor.interceptOnce(authenticatedRequest(testRequest), defaultResult)
+      } yield {
+        first.header.status mustBe SEE_OTHER
+        second.header.status mustBe Ok
+      }
     }
   }
 }
